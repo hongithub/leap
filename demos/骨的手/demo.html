@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>骨的手</title>
+	
+	<script type="text/javascript" src="./js/leap.js"></script>
+	<script type="text/javascript" src="./js/leap-plugins.js"></script>
+	<script type="text/javascript" src="./js/three.js"></script>
+</head>
+<body>
+	
+
+
+	<script type="text/javascript">
+		
+		//定义一个基本的可变换的手骨：
+		var baseBoneRot = (new THREE.Quaternion).setFromEuler(new THREE.Euler(Math.PI/2,0,0));
+
+		//设备连接器展示手：
+		Leap.loop(
+			{background:true},
+			{hand:function(hand){
+				hands(hand);}//手的设置绑定坐标系数据
+			})
+		.use('handHold')
+		.use('handEntry')
+		.on('handFound',function(hand){
+			putScene(hand);//手进入场景调用
+		})
+		.on('handLost',function(hand){
+			leaveScene(hand);//手退出场景调用
+		})
+		.connect();
+
+
+		//手进入设备调用手函数进行手模型的设置
+		function putScene(hand){
+			console.log('putScene调用'+'进入场景');
+			hand.fingers.forEach(function(finger){
+				//骨网格数组及端点关节点的网格数组
+				var boneMeshes=[];
+				var jointMeshes=[];
+				finger.bones.forEach(function(bone){
+					var boneGeometry = new THREE.CylinderGeometry(5,5,bone.length);
+					var boneMaterial = new THREE.MeshPhongMaterial();
+					var boneMesh = new THREE.Mesh(boneGeometry,boneMaterial);
+					boneMesh.material.color.setHex(0xee9900);
+					scene.add(boneMesh);
+					boneMeshes.push(boneMesh);
+				});
+
+				var bonesLength = finger.bones.length;
+				for(var i=0;i<bonesLength+1;i++){
+					var jointGeometry = new THREE.SphereGeometry(8);
+					var jointMaterial = new THREE.MeshPhongMaterial();
+					var jointMesh = new THREE.Mesh(jointGeometry,jointMaterial);
+					scene.add(jointMesh);
+					jointMeshes.push(jointMesh);
+				}
+
+				//绑定网格数据
+				finger.data('boneMeshes',boneMeshes);
+				finger.data('jointMeshes',jointMeshes);
+
+			});
+
+			//判断手臂的入场
+			if(hand.arm){
+				var armGeometry = new THREE.CylinderGeometry(1,1,hand.arm.length);
+				var armMaterial = new THREE.MeshPhongMaterial();
+				var armMesh = new THREE.Mesh(armGeometry,armMaterial);
+				armMesh.material.color.setHex(0x678900);
+				scene.add(armMesh);
+				hand.data('armMesh',armMesh);
+			}
+		}
+		
+		//手离开或断开设备调用函数
+		function leaveScene(hand){
+			console.log('leaveScene调用'+'退出场景');
+			hand.fingers.forEach(function(finger){
+				var boneMeshes = finger.data('boneMeshes');
+				var jointMeshes = finger.data('jointMeshes');
+				boneMeshes.forEach(function(mesh){
+					scene.remove(mesh);
+
+				});
+				jointMeshes.forEach(function(mesh){
+					scene.remove(mesh);
+				});
+
+				finger.data({
+					boneMeshes:null,
+					jointMeshes:null
+				});
+			});
+
+			var armMesh = hand.data('armMesh');
+			scene.remove(armMesh);
+			hand.data('armMesh',null);
+			renderer.render(scene, camera);
+
+		}
+
+		//设备连接时对手的设置并渲染出手功能函数：
+		function hands(hand){
+			//对 手对象的各个手指遍历
+				hand.fingers.forEach(function(finger){
+					//给每个手指绑定boneMeshes数据,同时对每个手指的骨头遍历
+					finger.data('boneMeshes').forEach(function(mesh,i){
+						var bone = finger.bones[i];
+						mesh.position.fromArray(bone.center());//把骨的中心赋给网格坐标位置
+
+						//设置骨的坐标系映射到网格坐标系后的旋转坐标
+						mesh.setRotationFromMatrix((new THREE.Matrix4).fromArray((bone.matrix())));
+						//按最初设定的单位向量计算点积后得到mesh的四维坐标；
+						//multiply是对四元数组的点积计算功能；
+						mesh.quaternion.multiply(baseBoneRot);
+					});
+
+					finger.data('jointMeshes').forEach(function(mesh,i){
+						var bone = finger.bones[i];
+						if(bone){
+							mesh.position.fromArray(bone.prevJoint);
+						}else{
+							bone = finger.bones[i-1];
+							mesh.position.fromArray(bone.nextJoint);
+						};
+					});
+
+
+				});
+
+				//手臂
+				var armMesh =hand.data('armMesh');
+				armMesh.position.fromArray(hand.arm.center());
+				armMesh.setRotationFromMatrix((new THREE.Matrix4).fromArray(hand.arm.matrix()));
+				armMesh.quaternion.multiply(baseBoneRot);
+
+				//手臂的位移设置：利用获取的手臂的平均宽度；
+				armMesh.scale.x = hand.arm.width/2;
+				armMesh.scale.z = hand.arm.width/4;
+
+				//加入场景渲染
+				renderer.render(scene,camera);
+		}
+
+
+		//场景创建的小立方体
+		var initScene = function () {
+		    window.scene = new THREE.Scene();
+		    window.renderer = new THREE.WebGLRenderer({
+		      alpha: true
+		    });
+
+		    window.renderer.setClearColor(0x000000, 0);
+		    window.renderer.setSize(window.innerWidth, window.innerHeight);
+
+		    window.renderer.domElement.style.position = 'fixed';
+		    window.renderer.domElement.style.top = 0;
+		    window.renderer.domElement.style.left = 0;
+		    window.renderer.domElement.style.width = '100%';
+		    window.renderer.domElement.style.height = '100%';
+
+		    document.body.appendChild(window.renderer.domElement);
+
+		    var directionalLight = new THREE.DirectionalLight( 0xffffff, 1 );
+		    directionalLight.position.set( 0, 0.5, 1 );
+		    window.scene.add(directionalLight);
+
+		    window.camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 1000);
+		    window.camera.position.fromArray([0, 100, 500]);
+		    window.camera.lookAt(new THREE.Vector3(0, 160, 0));
+
+		    window.addEventListener('resize', function () {
+
+		      camera.aspect = window.innerWidth / window.innerHeight;
+		      camera.updateProjectionMatrix();
+		      renderer.setSize(window.innerWidth, window.innerHeight);
+		      renderer.render(scene, camera);
+
+		    }, false);
+
+		    scene.add(camera);
+
+
+		    var geometry = new THREE.CubeGeometry(30, 45, 10);
+		    var material = new THREE.MeshPhongMaterial({color: 0x0000cc});
+		    window.cube = new THREE.Mesh(geometry, material);
+		    cube.position.set(0,0,0);
+		    cube.castShadow = true;
+		    cube.receiveShadow = true;
+		    scene.add(cube);
+
+		    renderer.render(scene, camera);
+		  };
+
+		  initScene();
+
+		  var rotateCube = function(){
+		    cube.rotation.x += 0.01;
+		    cube.rotation.y += 0.02;
+		    renderer.render(scene, camera);
+
+		    window.requestAnimationFrame(rotateCube);
+		  };
+
+		  rotateCube();
+	</script>
+</body>
+</html>
