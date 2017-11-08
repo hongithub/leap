@@ -1,0 +1,63 @@
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>基本向量Math与leap的使用,手指方向与食指方向的点积</title>
+
+    <script src="../leap-0.6.4.js"></script>
+
+    <script>
+
+      Leap.loop({
+
+        frame: function(frame){
+          var hand = frame.hands[0];
+          if (hand){
+            var dot = Leap.vec3.dot(hand.direction, hand.indexFinger.direction);
+
+            console.assert(!isNaN(dot));
+
+            out.innerHTML = dot.toPrecision(2);
+          }
+        }
+
+      });
+
+    </script>
+
+    <style>
+      body {
+        line-height: 2em;
+        font-family: Helvetica;
+      }
+      #out{
+        font-weight: bold;
+      }
+    </style>
+
+  </head>
+
+  <body>
+
+  <p>
+    本页面演示基本向量Math与Leap的用法。在这个例子中，我们将计算手指方向和食指方向的点积。这是两个向量有多接近的度量。
+  </p>
+
+  <p>
+    Find out more in the <a target="_blank" href="http://glmatrix.net/docs/2.2.0/">GL-Matrix Documentation</a> and
+    <a href="http://en.wikipedia.org/wiki/Dot_product" target="_blank">Wikipedia</a>.
+  </p>
+
+  <p>
+    <img src="images/dot-product.png"/>
+  </p>
+
+  <br/>
+  <p>
+    手指方向 &#xb7; 食指方向 =
+    <span id="out"></span>
+  </p>
+
+
+  </body>
+
+</html>

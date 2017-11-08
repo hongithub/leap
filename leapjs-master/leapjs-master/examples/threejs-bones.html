@@ -1,0 +1,309 @@
+<html>
+<head>
+  <title>骨的手</title>
+  <script src="../leap-0.6.4.js"></script>
+  <script src="lib/leap-plugins-0.1.6.js"></script>
+  <script src="lib/three.js"></script>
+
+</head>
+<body>
+
+<p>
+  在飞跃上，看骨的手；
+</p>
+<p>
+  没有飞跃，也可以看到three.js创建的物体；
+</p>
+
+</body>
+
+<script>
+// note: before implementing based off of this, you can instead grab the boneHand plugin, which does this all for you,
+// better than the way it is done here.
+// https://developer.leapmotion.com/gallery/bone-hands
+// If you prefer to see exactly how it all works, read on..
+
+  //定义color的数组设置；xyz的类似的顺序设置
+  var colors = [0xff0000, 0x00ff00, 0x0000ff];
+
+  //设置基本手的旋转；按四元数对象引入欧拉角的参数设置旋转的手向量
+  console.log(new THREE.Quaternion);
+  var baseBoneRotation = (new THREE.Quaternion).setFromEuler(
+      new THREE.Euler(Math.PI / 2, 0, 0)
+  );
+  Leap.loop({background: true}, {
+    hand: function (hand) {
+
+      //手指对象的绑定
+      hand.fingers.forEach(function (finger) {
+
+        // This is the meat of the example - Positioning `the cylinders on every frame:
+        // 定义每个圆柱体的的frame
+        // finger.data('boneMeshes')，给每个手指骨绑定骨的材质
+        finger.data('boneMeshes').forEach(function(mesh, i){
+          var bone = finger.bones[i];
+
+          mesh.position.fromArray(bone.center());//bone.center()骨头的中心点
+
+          mesh.setRotationFromMatrix(
+            (new THREE.Matrix4).fromArray( bone.matrix() )//bone.matrix()获取骨头在leap坐标系的取向和位置变换
+          );
+
+          mesh.quaternion.multiply(baseBoneRotation);//点积形成一个新的矩阵坐标系
+        });
+        // finger.data('boneMeshes')，给每个手指骨的关节点绑定端点的材质
+        finger.data('jointMeshes').forEach(function(mesh, i){
+          var bone = finger.bones[i];
+
+          if (bone) {
+            mesh.position.fromArray(bone.prevJoint);//bone.prevJoint靠近躯干骨的近端
+          }else{
+            // special case for the finger tip joint sphere:
+            //指尖关节球的特殊情况；
+            bone = finger.bones[i-1];
+            mesh.position.fromArray(bone.nextJoint);//bone.nextJoint骨靠近指尖的远端
+          }
+
+        });
+
+      });
+
+
+      //手臂对象的绑定
+      var armMesh = hand.data('armMesh');
+
+      //hand.arm.center()手臂中心位置
+      armMesh.position.fromArray(hand.arm.center());
+
+      armMesh.setRotationFromMatrix(
+        //手臂在leap上的坐标系对齐进行转换为three的矩阵坐标系的转换为手臂的旋转坐标，
+        (new THREE.Matrix4).fromArray( hand.arm.matrix() )
+      );
+
+
+      //利用最初的骨旋转坐标单位向量与手臂的向量做点积，获得一个新的变换矩阵坐标，（就是手在动时，坐标的变换）
+      armMesh.quaternion.multiply(baseBoneRotation);
+
+      armMesh.scale.x = hand.arm.width / 2;
+      armMesh.scale.z = hand.arm.width / 4;
+
+    renderer.render(scene, camera);
+
+  }})
+    // these two LeapJS plugins, handHold and handEntry are available from leapjs-plugins, included above.
+    // handHold provides hand.data
+    // handEntry provides handFound/handLost events.
+    //以下是基于手持插件调用功能：监控手的状态调用触发控制器的触发事件；
+    //状态：handHold:手进入控制器当中的正在进行的状态；去触发handFound事件,由hand对象触发
+    //      handEntry:手在进入或离开时的触发handFound事件；由hand对象触发
+    //      还有一个事件是在断开设备时触发handLost事件，设备断开连接时，每一只手都会触发此事件。由hand对象触发
+  .use('handHold')//手举行触发handFound事件
+  .use('handEntry')//手进入设备触发handFound事件，
+  .on('handFound', function(hand){
+    console.log('手已进入场景');
+    hand.fingers.forEach(function (finger) {
+
+      var boneMeshes = [];
+      var jointMeshes = [];
+
+      finger.bones.forEach(function(bone) {
+
+        // create joints
+        // 创建节点
+
+        // CylinderGeometry(radiusTop, radiusBottom, height, radiusSegments, heightSegments, openEnded)
+        // 构建一个圆柱体代表一个骨
+        var boneMesh = new THREE.Mesh(
+            new THREE.CylinderGeometry(5, 5, bone.length,20,30,true),//bone.length的骨的长度设为圆柱体高度
+            new THREE.MeshPhongMaterial()
+        );
+
+        boneMesh.material.color.setHex(0xff0000);
+        scene.add(boneMesh);
+        boneMeshes.push(boneMesh);//把每个骨对应存放在骨数组里面
+      });
+
+      for (var i = 0; i < finger.bones.length + 1; i++) {
+
+        var jointMesh = new THREE.Mesh(
+            new THREE.SphereGeometry(8),
+            new THREE.MeshPhongMaterial()
+        );
+
+        jointMesh.material.color.setHex(0x000000);
+        scene.add(jointMesh);
+        jointMeshes.push(jointMesh);
+
+      }
+
+      //基于手持插件手指绑定骨对象网格
+      finger.data('boneMeshes', boneMeshes);
+      //基于手持插件手指关节处绑定关节对象网格
+      finger.data('jointMeshes', jointMeshes);
+
+    });
+
+
+    //判断若有手臂，则建立手臂网格
+    if (hand.arm){ // 2.0.3+ have arm api,
+      console.log(hand.arm.length);
+      // CylinderGeometry(radiusTop, radiusBottom, height, radiusSegments, heightSegments, openEnded)
+      var armMesh = new THREE.Mesh(
+        // new THREE.CylinderGeometry(1, 1, hand.arm.length,8,10,false),
+        
+        new THREE.CylinderGeometry(1, 1,hand.arm.length),
+        new THREE.MeshPhongMaterial()
+      );
+
+      armMesh.material.color.setHex(0xff00ff);
+
+      scene.add(armMesh);
+
+      hand.data('armMesh', armMesh);//基于手持插件手绑定手臂对象网格
+
+    }
+
+  })
+  .on('handLost', function(hand){//断开设备触发handLost事件，类似需要保持最后一帧的图像
+    console.log('手已离开场景');
+    hand.fingers.forEach(function (finger) {
+
+      var boneMeshes = finger.data('boneMeshes');
+      var jointMeshes = finger.data('jointMeshes');
+
+      boneMeshes.forEach(function(mesh){
+        scene.remove(mesh);
+      });
+
+      jointMeshes.forEach(function(mesh){
+        scene.remove(mesh);
+      });
+
+      finger.data({
+        boneMeshes: null,
+        boneMeshes: null
+      });
+
+    });
+
+    var armMesh = hand.data('armMesh');
+    scene.remove(armMesh);
+    hand.data('armMesh', null);
+
+    renderer.render(scene, camera);
+
+  })
+  .connect();
+
+
+  // all units in mm 
+  // threejs的场景创建
+  var initScene = function () {
+    window.scene = new THREE.Scene();
+    window.renderer = new THREE.WebGLRenderer({
+      alpha: true
+    });
+
+    window.renderer.setClearColor(0x000000, 0);
+    window.renderer.setSize(window.innerWidth, window.innerHeight);
+
+    window.renderer.domElement.style.position = 'fixed';
+    window.renderer.domElement.style.top = 0;
+    window.renderer.domElement.style.left = 0;
+    window.renderer.domElement.style.width = '100%';
+    window.renderer.domElement.style.height = '100%';
+
+    document.body.appendChild(window.renderer.domElement);
+
+    var directionalLight = new THREE.DirectionalLight( 0xffffff, 1 );
+    directionalLight.position.set( 0, 0.5, 1 );
+    window.scene.add(directionalLight);
+
+    window.camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 1000);
+    window.camera.position.fromArray([0, 100, 500]);
+    window.camera.lookAt(new THREE.Vector3(0, 160, 0));
+
+    window.addEventListener('resize', function () {
+
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.render(scene, camera);
+
+    }, false);
+
+    scene.add(camera);
+
+
+    var geometry = new THREE.CubeGeometry(30, 45, 10);
+    var material = new THREE.MeshPhongMaterial({color: 0x0000cc});
+    window.cube = new THREE.Mesh(geometry, material);
+    cube.position.set(0,0,0);
+    cube.castShadow = true;
+    cube.receiveShadow = true;
+    scene.add(cube);
+
+    renderer.render(scene, camera);
+  };
+
+  initScene();
+
+  var rotateCube = function(){
+    cube.rotation.x += 0.01;
+    cube.rotation.y += 0.02;
+    renderer.render(scene, camera);
+
+    window.requestAnimationFrame(rotateCube);
+  };
+
+  rotateCube();
+
+  //fromArray（）为在threjs中设置的获取数组分配xyz值的功能函数；在three中有好几种fromArray功能函数，这要看是什么对象类调用源码如下：
+  /*//    1.xy的 fromArray: function ( array, offset ) {
+
+      if ( offset === undefined ) offset = 0;
+
+      this.x = array[ offset ];
+      this.y = array[ offset + 1 ];
+
+      return this;
+
+    },
+    2.fromArray: function ( array, offset ) {
+
+      if ( offset === undefined ) offset = 0;
+
+      for ( var i = 0; i < 16; i ++ ) {
+
+        this.elements[ i ] = array[ i + offset ];
+
+      }
+
+      return this;
+
+    },
+
+    3.方向向量的
+      fromArray: function ( array, offset ) {
+
+      if ( offset === undefined ) offset = 0;
+
+      this._x = array[ offset ];
+      this._y = array[ offset + 1 ];
+      this._z = array[ offset + 2 ];
+      this._w = array[ offset + 3 ];
+
+      this.onChangeCallback();
+
+      return this;
+
+    },
+    .........
+    具体请看threejs源码
+
+
+
+    */
+
+</script>
+</html>

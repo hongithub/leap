@@ -1,0 +1,70 @@
+<html>
+  <head>
+    <title>控制器事件- Leap</title>
+    <script src="../leap-0.6.4.js"></script>
+    <script>
+      var paused = false;
+      window.onkeypress = function(e) {
+        if (e.charCode == 32) {
+          if (paused == false) {
+            paused = true;
+          } else {
+            paused = false;
+          }
+        }
+      };
+      var controller = new Leap.Controller({enableGestures: true});
+      controller.loop(function(frame) {
+        latestFrame = frame;
+        if (paused) {
+          document.getElementById('pause').innerHTML = "<strong>PAUSED</strong>";
+          return;
+        }
+        console.log(frame);
+        console.log(frame.handsMap);
+        var str = "";
+        for (var i in frame.handsMap) {
+          var hand = frame.handsMap[i];
+          str += "<p>" +
+            "<strong>Roll(手滚动角)围z轴方向的转动:</strong> " + hand.roll() +
+            "<br/><strong>Pitch(俯仰角)围x轴方向的转动:</strong> " + hand.pitch() +
+            "<br/><strong>Yaw(偏航角)围y轴的方向转动:</strong> " + hand.yaw() +
+            "</p>";
+        }
+        console.log(str);
+        document.getElementById('out').innerHTML = str;
+      });
+      controller.on('ready', function() {
+          console.log("ready");
+      });
+      controller.on('connect', function() {
+          //设备服务器连接成功时可以开始准备接受数据
+          console.log("connect"+'连接成功时可以开始准备接受数据');
+      });
+      controller.on('disconnect', function() {
+        ////设备服务器断开连接时
+          console.log("disconnect"+'服务器断开连接时');
+      });
+      controller.on('focus', function() {
+        //当浏览器页面获取焦点时，触发事件，表示用户在同一浏览器页面点其他选项卡关闭时；回到正在渲染的页面时；
+          console.log("focus"+'渲染页面获得焦点');
+      });
+      controller.on('blur', function() {
+          //当浏览器页面失去焦点时，触发事件，表示用户在同一浏览器页面点其他选项卡时；如在页面正常时去点击页面调式器看bug时；页面失焦；
+          console.log("blur"+'渲染页面失焦');
+      });
+      controller.on('deviceConnected', function() {
+          //设备接入未被追踪时的分派事件
+          console.log("deviceConnected");
+      });
+      controller.on('deviceDisconnected', function() {
+        //设备拔出未被追踪时的分派事件
+          console.log("deviceDisconnected");
+      });
+    </script>
+  </head>
+  <body>
+    <div id="pause">pause</div>
+    <div id="out">out</div>
+  </body>
+</html>
