@@ -1,0 +1,259 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Leap 手的变换插件</title>
+
+  <style>
+    body{
+      margin: 0;
+      font-family: Helvetica;
+    }
+    canvas{
+      pointer-events: none;
+    }
+    input{
+      cursor: pointer;
+    }
+    #connect-leap{
+      bottom: 0;
+      top: auto !important;
+    }
+
+    table, th, td {
+      border: 1px solid #aaa;
+    }
+    table {
+      border-collapse: collapse;
+    }
+    td, th {
+      vertical-align: top;
+      padding: 3px;
+    }
+    th {
+      color: #555;
+    }
+    #view-source {
+      position: absolute;
+      top: 0;
+      right: 0;
+      margin: 10px;
+    }
+  </style>
+
+
+  <script src="../bone-hand/lib/three.js"></script>
+  <script src="../bone-hand/lib/leap-0.6.4.js"></script>
+  <script src="../leap-plugins-0.1.12.js"></script>
+  <script src="../bone-hand/lib/leap.rigged-hand-0.1.7.js"></script>
+  <script src="../bone-hand/lib/OrbitControls.js"></script>
+
+</head>
+<body>
+<!-- 文档介绍 -->
+  <a id="view-source" href="#" style="display: none;">查看源代码</a>
+
+  <h1 style="display: none;">转换插件</h1>
+  <p style="display: none;">
+    将跨越数据基于一个旋转矩阵和向量的旋转或阅读threejs
+  </p>
+  <p style="display: none;">
+    在这里我们用riggedhand可视化的转变，但它不是必需的。帧中的所有数据都被更改。通过转换插件
+  </p>
+  <p style="display: none;">
+    参数可以是静态对象，也可以是每个帧上转换的方法。
+  </p>
+  <p style="display: none;">
+    这样，你就可以根据他们的身份来改变个人的双手。
+  </p>
+
+  <br/>
+
+<div style="float: left;margin:0px 1em;">
+  <label>Rotation:(手围绕Y轴旋转) <span id="rotationOutput">0</span>π</label><br/>
+  <input id="rotationInput" type="range" min="-1" max="1" value="0" step="0.001">
+</div>
+
+<div style="float: left;margin:0px 1em;">
+  <label>Z Position:手在Z轴位置 <span id="positionOutput">0</span></label><br/>
+  <input id="positionInput" type="range" min="-1000" max="300" value="0" step="1">
+</div>
+
+<div style="float: left;margin:0px 1em;">
+  <label>Scale:(手的大小缩放因子) <span id="scaleOutput">0.3</span></label><br/>
+  <input id="scaleInput" type="range" min="0.1" max="1" value="0.3" step="0.01">
+  <!-- note - there seems to be a strange issue with THREEjs sections of the hand disappearing for scales larger than 1.
+       Scale set as an option for the riggedHand will cause the issue.  -->
+</div>
+<div style="float: left; padding: 10px;margin:0px 1em;">
+  <button id="showHide">显示/隐藏</button>
+</div>
+
+<br/>
+
+<pre><code>
+  // 简单的引用例子:
+  Leap.loop()
+    .use('transform', {
+      //向后移动20cm(厘米)
+      position: new THREE.Vector3(0,0,-200)
+    });
+</code></pre>
+
+<br/>
+
+<!-- 文档介绍 -->
+  <h3 style="display: none;">Options</h3>
+
+  <table style="display: none;">
+    <tr>
+      <th>名称</th>
+      <th>默认值</th>
+      <th>描述值</th>
+    </tr>
+    <tr>
+      <td>VR</td>
+      <td>false</td>
+      <td>
+       告诉跟踪使用头戴式设备模式....
+      </td>
+    </tr>
+    <tr>
+      <td>position（位置）</td>
+      <td>未知</td>
+      <td>一个three.vector3位置偏移向量</td>
+    </tr>
+    <tr>
+      <td>quaternion(四元数)</td>
+      <td>未知</td>
+      <td>A THREE.Quaternion rotation（四元数的旋转设置）</td>
+    </tr>
+    <tr>
+      <td>scale(缩放因子)</td>
+      <td>未知</td>
+      <td>三向量标度向量，或单个标量应用于所有三轴。</td>
+    </tr>
+    <tr>
+      <td>effectiveParent</td>
+      <td>未知</td>
+      <td>
+        一个three.object3d，或任何回应`matrixworld`和`scale`。这matrixworld应用于手动数据以及通过其他选项指定的任何转换。这可以让手“附”。对着照相机。</td>
+    </tr>
+  </table>
+
+
+</body>
+
+
+
+<script>
+  // all units in mm
+  //所有的单位统一用mm毫米
+  var initScene = function () {
+    window.scene = new THREE.Scene();
+    window.renderer = new THREE.WebGLRenderer({
+      alpha: true
+    });
+
+    window.renderer.setClearColor(0x000000, 0);
+    window.renderer.setSize(window.innerWidth, window.innerHeight);
+
+    window.renderer.domElement.style.position = 'fixed';
+    window.renderer.domElement.style.top = 0;
+    window.renderer.domElement.style.left = 0;
+    window.renderer.domElement.style.width = '100%';
+    window.renderer.domElement.style.height = '100%';
+
+    document.body.appendChild(window.renderer.domElement);
+
+    window.scene.add(new THREE.AmbientLight(0x888888));
+
+    var pointLight = new THREE.PointLight(0xFFffff);
+    pointLight.position = new THREE.Vector3(-20, 10, 100);
+    pointLight.lookAt(new THREE.Vector3(0, 0, 0));
+    window.scene.add(pointLight);
+
+    window.camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 10000);
+    window.camera.position.fromArray([0, 160, 400]);
+    window.camera.lookAt(new THREE.Vector3(0, 0, 0));
+
+    window.addEventListener('resize', function () {
+
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.render(scene, camera);
+
+    }, false);
+
+    scene.add(camera);
+
+
+    renderer.render(scene, camera);
+  };
+
+  initScene();
+  var controls = new THREE.OrbitControls( camera, renderer.domElement );
+
+
+
+  Leap.loop()
+  // note that transform must be _before_ rigged hand
+  // 注意变换必须_before_操纵手
+  .use('transform', {
+    quaternion: new THREE.Quaternion,
+    position: new THREE.Vector3,
+    scale: 0.3
+  })
+  .use('riggedHand', {
+    dotsMode: true,
+    parent: scene,
+    renderFn: function(){
+      renderer.render(scene, camera);
+    }
+
+  })
+  .connect();
+
+  //转换插件的对象调用
+  window.transformPlugin = Leap.loopController.plugins.transform;
+  
+
+  document.getElementById('rotationInput').oninput = function(e){
+    var value = e.target.value;
+    transformPlugin.quaternion.setFromEuler(
+        new THREE.Euler(0, Math.PI * parseFloat(value,10) , 0)
+    );
+    document.getElementById('rotationOutput').innerHTML = value;
+  };
+
+  document.getElementById('positionInput').oninput = function(e){
+    var value = e.target.value;
+    transformPlugin.position.set(
+        0,0,parseInt(value, 10)
+    );
+    document.getElementById('positionOutput').innerHTML = value;
+  };
+
+  document.getElementById('scaleInput').oninput = function(e){
+    var value = parseFloat(e.target.value,10);
+    transformPlugin.scale.set(
+        value, value, value
+    );
+    document.getElementById('scaleOutput').innerHTML = value;
+  };
+
+  document.getElementById('showHide').onclick = function(){
+    var el = document.querySelector('canvas');
+    if (el.style.display == 'none'){
+      el.style.display = 'block'
+    }else {
+      el.style.display = 'none'
+    }
+  }
+
+  
+
+</script>
+
+</html>

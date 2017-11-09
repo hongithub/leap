@@ -1,0 +1,175 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+
+  <script src="./lib/three.js"></script>
+  <script src="./lib/leap-0.6.4.js"></script>
+  <script src="../leap-plugins-0.1.12.js"></script>
+  <!-- three.js屏幕移动缩放，旋转库 -->
+  <script src="./lib/OrbitControls.js"></script>
+  <title>手持插件</title>
+  <style>
+    body {
+      margin: 10px;
+      font-family: Helvetica;
+    }
+    canvas.leap-boneHand {
+      position: fixed;
+      top: 0;
+      left: 0;
+      display: none;
+    }
+    table, th, td {
+      border: 1px solid #aaa;
+    }
+    table {
+      border-collapse: collapse;
+    }
+    td, th {
+      vertical-align: top;
+      padding: 3px;
+    }
+    th {
+      color: #555;
+    }
+
+  </style>
+
+</head>
+<body>
+
+<a id="view-source" href="#">查看源码</a>
+
+<h1>骨手</h1>
+<p>
+  放入现场演示
+</p>
+<p>
+  允许你在threejs中添加一只手
+</p>
+<p>
+  创建一个默认场景
+</p>
+<pre><code>
+  // 最简单的例子使用
+  Leap.loop()
+    .use('boneHand', {
+      targetEl: document.body,
+      arm: true
+    });
+</code></pre>
+
+
+<h3>选项</h3>
+
+<table>
+  <tr>
+    <th>名称</th>
+    <th>默认值</th>
+    <th>描述</th>
+  </tr>
+  <tr>
+    <td>scene</td>
+    <td>未知</td>
+    <td>
+      <p>接受threescene。如果未定义，默认场景将创建一些默认值（透明画布，三个灯，mm单位），并在每个动画帧上渲染。如果NULL，插件将等待场景在未来点明确设置。
+      </p>
+      <p>用默认的场景，渲染器，摄像头，和场景都会在插件的范围了 E.g., `myController.plugins.boneHand.scene`</p>
+    </td>
+  </tr>
+  <tr>
+    <td>targetEl</td>
+    <td>未知</td>
+    <td>接受一个元素, 例如 `document.body`. </td>
+  </tr>
+  <tr>
+    <td>boneScale:(骨规模scale缩放因子)</td>
+    <td>1 / 6</td>
+    <td>中指骨相对于近端骨长度的半径</td>
+  </tr>
+  <tr>
+    <td>jointScale：（joint(端点连接点)的规模）</td>
+    <td>1 / 5</td>
+    <td>中指骨相对于近端骨长度的半径</td>
+  </tr>
+  <tr>
+    <td>boneColor：（骨颜色设置）</td>
+    <td>(new THREE.Color).setHex(0xffffff)</td>
+    <td></td>
+  </tr>
+  <tr>
+    <td>jointColor ：（端点颜色设置）</td>
+    <td>(new THREE.Color).setHex(0x5daa00)</td>
+    <td></td>
+  </tr>
+</table>
+
+<h3>Addendum</h3>
+
+<p>
+  THREE.js shadows are fully supported.
+</p>
+  <ul>
+    <li>If using the default scene, simply set <code>yourMesh.receivesShadow = true</code>, as
+      demonstrated in the source of this page.</li>
+    <li>If working with your own scene, be sure to have your <code>renderer.shadowMapEnabled = true</code>
+      and then, if you choose, call <code>myController.plugins.boneHand.addShadowCamera()</code>.  </li>
+  </ul>
+
+<p>
+    See the source for details.  <code>scope.light.shadowCameraVisible</code> is a nice tool to know about.
+</p>
+
+</body>
+
+<script>
+
+  // 设置插件
+
+  Leap.loop()
+//    .use('transform', {vr: true})
+    .use('boneHand', {
+      targetEl: document.body,
+      arm: true,
+      opacity: 0.5
+    });
+
+
+
+  // 设置手持插件的场景
+
+  var scene    = Leap.loopController.plugins.boneHand.scene;
+  var camera   = Leap.loopController.plugins.boneHand.camera;
+  var renderer = Leap.loopController.plugins.boneHand.renderer;
+
+//创建一个平面
+  var plane = new THREE.Mesh(
+    new THREE.PlaneGeometry(80,80),
+    new THREE.MeshPhongMaterial({wireframe:true, side: THREE.DoubleSide})
+  );
+
+  plane.scale.set(2,2,2);
+  plane.position.set(0,200,-100);
+  plane.receiveShadow = true;
+  scene.add(plane);
+
+  camera.lookAt( plane.position );
+
+  var axisHelper = new THREE.AxisHelper( 200);
+  scene.add( axisHelper );
+
+
+  //支持拖拽，鼠标移动视角，缩放或者旋转的操作：这里是已移动物体为目标进行操作；
+  
+  var controls = new THREE.OrbitControls( camera, renderer.domElement );
+
+
+  Leap.loopController.on('handFound', function(hand) {
+    document.querySelector('canvas').style.display = 'block';
+  }).on('handLost', function(hand){
+    if (Leap.loopController.frame(0).hands.length === 0){
+      document.querySelector('canvas').style.display = 'none';
+    }
+  });
+
+</script>
