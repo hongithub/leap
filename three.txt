@@ -1,0 +1,290 @@
+three
+
+
+LeapJS 的插件扩展：leapjs-plugins
+
+leapjs 控制器的使用：
+==================
+手入场
+leapjs插件：
+1.handEntry:手入场：说明当手进入或离开框架时触发控制器事件；
+	语法：controlller.use('handEntry');
+	leap.loop(function(frame){}).use('handEntry').on('handFound',function(hand){
+	//....
+
+});
+
+手的活动：
+
+2.handFound 手；：从控制器触发，通过hand对象：
+  
+	controller.on('handFound',
+		function(hand){
+		console.log('hand',hand);
+}
+
+)
+3.handLost:在控制器触发，这是在最后一帧看到的，当设备断开连接时，手就触发此事件；
+	语法:controller.on('handLost',
+	function(hand){
+	console.log('handLost',hand);
+}
+
+);
+===================================
+
+手持：
+
+数据的设置和获取
+用法：.data(hashOrKey,value);允许获取或设置数据；
+eg:hand.data('player',1)==>存储数据是设置为1
+   hand.data({player:1})==>存储对象数据；设置为1
+   hand.data('player')//==获取数据；返回1
+手悬停时的手保持数据的方法：
+eg:hand.hold(somediv);//存储div
+   hand.hold();//存储当前的悬停目标；
+   hand.holding();//返回当前持有的对象，返回someDiv；
+hoverFn（回调）设置手将用来确定她悬停在哪里的功能；
+   hand.hoverFn(
+	function(hand){
+	return hand.closestDiv();
+}
+);
+悬停()；
+基于hoverFn，返回目前盘旋的手，如果没有回调设置，将返回undefined; 
+hand.hovering()//返回hand.closestDiv()的结果；
+
+ //=======================
+屏幕位置：适用于手和点
+用法：
+方法：hand.screenPosition([positionVec3]);返回手在屏幕空间的位置，或返回屏幕空间中传入的矢量；
+
+
+版本检查：
+用法：controller.use('versionCheck')
+
+
+回放： playback ;
+  controller.use('playback',{
+	recording:'''//记录的文件数据
+	requiredProtocolVersion:6,版本的设置
+	pauseOnHand:true，//手离开与进入时的模式设置；
+
+
+})
+
+//===========================
+leap motion
+
+简介：
+	Leap Motion系统可以检测并跟踪手、手指和类似手指的工具
+
+坐标系统：
+
+	右手笛卡尔坐标系，
+	x轴和z轴在器件的水平面上，x轴和设备的长边平行[z轴和短边平行，挺好记]。y轴是垂直的，
+
+运动追踪数据：
+	
+	每次手进入控制器时，都会重新分配一个ID的指示符，来代表入场的物体，数据都跟随这个对应的ID进行实时获取数据存储数据更新数据；
+	
+帧：一个帧对象提供整个运动物体的数据列表：
+
+数据对象包含的数据流：
+
+数据列表：
+	Hands:手  ，或所有的手；==》通过访问手的列表，来获取手中物体的信息
+	Pointables: 有端点的手指或有端点的工具；
+	Fingers:手指：所有的手指；
+	Tools:工具：所有的工具；
+	gesture:手势：所有的手势的开始，结束或者哪个进行了更新。
+	
+帧运动：
+   位移，旋转，尺度变化；（缩放）；
+   
+   运动合成产生的属性：
+	1.Rotation Axis--旋转坐标：一个方向向量来描述坐标的旋转；
+	2.Rotation Angle--旋转角度：相对于旋转坐标的顺时针方向的旋转角度；
+	3.Rotation Matrix--旋转矩阵，一个旋转的矩阵变换；
+	4.Scale Factor--缩放因子，一个因子来描述膨胀和收缩；
+	5.Translation--位移，一个向量来描述线性运动；
+帧结构包含一个估计某个方向上的特定运动；
+
+//===================================
+手模型
+	手模型提供关于手，或者其它被检测出来的手指、工具的坐标、特征和运动。
+
+手属性：
+	手对象所包含的一些属性:
+	1.Palm Position--手掌坐标，在坐标系下，手掌中心的坐标以毫米为单位被衡量
+	2.Palm Velocity--手掌速率，毫米/每秒的运动速度；
+	3.Palm Normal--手掌法线方向，与手掌形成的平面的垂直向量，方向指向手掌内侧；
+	4.Direction--方向，由手掌中心指向手指的向量；
+	5.Sphere Center--球心，可以适合手掌内侧弧面的一个球心，（假设握住一个球）；
+	6.Sphere Radius--球半径，手掌的内侧弧面的一个球的球半径，手型变换半径跟随变化；
+	
+手运动：
+	手对象还提供了一些用于描述手运动的属性
+
+	与帧运动产生的属性差不多：
+	1.旋转坐标 Rotation Axis
+	2.旋转角度Rotation Angle
+	3.旋转矩阵Rotation Matrix;
+	4.缩放因子Scale Factor
+	5.位移 Translation 
+	
+	与手联系的手指和工具；
+	手指和工具列表：
+	1.Pointables--手指和工具都是端点物体；
+	2.Fingers--手指，仅仅手指
+	3.Tools--工具，仅仅工具；
+手指和工具的访问：
+	帧ID来访问单独的手指和工具：
+	这里是当前帧ID：Hand::finger,
+			Hand::tool(),
+	不区分手指和工具的：Hand::pointable();来访问；
+	如果手指和工具在此帧中，没有和手关联，返回一个无效的对象；
+
+//================
+手指和工具模型：
+	
+	手指和工具的物理特征被抽象到一个端点的对象中，属于一类端点对象；
+	属性包括：
+	1.length--长度，物体的可视长度（从手长出来的部分）
+	2.width --宽度，物体的平均宽度，注意是平均；
+	3.Direction --方向，一个单位朝向向量，方向与物体指向相同
+	4.Tip Position--尖坐标,在leapmotion坐标系下，尖的位置
+	5.Tip Velocity--尖点速率，尖的运动毫米/秒
+	
+	手指或工具的的识别判断：
+	使用Pointtable::isTool()函数来确定是手指还是工具端点对象；
+	
+//===============
+手势：
+  Gesture 
+ 手势对象：
+  手势可识别的运动模式：
+	1.Circle--圆圈，一个手指头画圆；运动轨迹信息可以再CircleGesture接口函数中查看
+	2.Swipe--挥动，手的线性运动；运动轨迹信息可以再SwipeGesture接口函数中查看
+	3.Key Tap--点击按键，手指点击运动；KeyTapGesture接口查看更多信息；
+	4.Screen Tap --屏幕点击，对电脑屏幕方向进行垂直点击；可以在ScreenTapGesture的接口函数看到更多的信息
+识别手势的开启：
+	控制类有一个：enableGesture()方法让你开启特定的手势识别；
+
+//===========================
+leap motion 结构：
+	程序编程接口：
+	1.原生接口：功能--》可以让你创建新的leap程序的动态库
+	2.网页套接接口WebSocket：功能--》可以配合js客户端库创建基于leap的应用；
+
+
+	//==应用接口：
+	
+//==========================
+leap motion可视化工具
+
+一般控制
+你可以控制键盘命令控制可视化工具。按下H键显示可以操作的命令。
+#Esc --- 退出程序。
+#H --- 显示可视化工具的帧率、Leap Motion的帧率以及按键命令。
+#S --- 切换窗口状态或全屏状态。
+#Z --- 反转z坐标轴的正方向和负方向。
+#G --- 开启和关闭坐标网格。
+#J --- 在黑色和蓝色或者白色与灰色（Jony状态）之间切换。
+#I --- 是否对之间路径进行插值。
+#Y --- 是否以艺术手法对指尖路径进行绘制。
+#L --- 显示追踪信息，包括上标签的坐标轴，可视化区域，指尖坐标和处理延时。
+#T --- 切换手指和工具使用线条绘制或者柱形绘制。在柱形绘制下，柱形的颜色取决于Leap Motion软件将物体识别出一个工具还是手指。在线条模式下，每个物体再被识别后颜色是随机分配的。
+#N --- 在手指、手掌面和手球模式之间循环切换手掌追踪数据。[可以参考第一篇概述中的演示]
+#O --- 是否打开手势指标的显示。
+#P --- 是否暂停可视化工具的显示。
+#B --- 显示屏幕位置可视效果。这些视觉效果包含对桌面计算面积的显示帧，手指的投影以及手指和工具指向与屏幕的交点。使用Leap Motion设置对话框[这个近两天翻译]来设置屏幕位置。
+#--  --- 对可视化窗口中的屏幕内容进行镜面显示（为了展示镜面显示器，屏幕位置可视效果要开启）。
+#D --- 切换触摸绘图仿真模式。
+
+
+摄像头工具：
+可视化工具在三维空间中显示指尖。你可以使用以下的按键控制摄像头：
+#=  ---放大。
+#-  --- 缩小。
+#V --- 在正投影、前方、上方和侧面视角之间循环切换摄像头。
+#A --- 但他们移动到边缘时，自动平移摄像头使得追踪中的手指在视野中。
+#C --- 把摄像头回到中心位置，使得最终的手指在视角中心。
+#方向键左和右 --- 开始和停止在正像投影下视角的旋转。
+#鼠标点击和拖拉 --- 在正投影下旋转摄像头。
+#鼠标右击和拖拉 --- 平移摄像头。
+
+
+追踪信息：
+
+新的API扩展知识：1.
+	1.全新的骨骼追踪模型；
+		Distal phalanges ==远端指骨
+		intermediate phalanges===中间指骨；
+		Proximal phalanges===近端指骨；
+		Metacarpals ===掌骨、、//thumb母指的掌骨为零；
+	
+
+	2.Hand的改变：
+		1.识别左右手参数：Hand.isLeft(),Hand.isRight();
+		2.增加了每个关节的位置和朝向；
+		3.增加了抓取强度 Hand.gripStrength()和捏的强度Hand.pinchStrength()
+		来表示用户是在抓或者捏的动作，可以设置阀值来触发一些功能，阀值设置在0-1范围内的浮点数；
+	3.实时输出每只手，5个手指的信息：
+		1.Hand.confidence(),Hand.palmWidth(),Hand.basis(),Hand.arm()是新增的函数；
+		2.推测：
+			basis()函数貌似是相对于手的统一的基本向量，
+			可以参见Matrx basis()的定义，
+			xBasis是相对于小拇指，
+			yBasis是相对于手的上方，
+			zBasis是相对于手腕的正方向，我还不太明白他的作用。
+
+	4.Finger的改变：
+
+		1.Finger.type(),当前是什么手指，也就是食指 拇指 中指之类的枚举
+		2.Finger.bone(),当前手指的骨头，都有4个骨头，大拇指0号骨头没有
+		3.手指的实时输出某个手指是否伸直的方法参考：Finger.isExtended();
+		以前是用fingers.count()来获取当前有多少只手是伸展开的功能，现在是使用isExtended()函数来判断每个手指是否是伸直的还是弯曲的；
+
+	5.新增Bone类 （骨骼的类方法）
+		增加了一堆方法，如basis()、direction()、invalid()、isValid()、prevJoint()、nextJoint()、type()、width()
+	
+	6.新增Arm类(手臂类的方法)
+		
+		增加了一堆方法，如basic()、direction()、elbowPosition()、invalid()、isValid()、width()、wristPosition()
+注：
+
+
+http://GuoMing.me
+//=======================
+获取帧数据：之前以上是C程序用到的方法：
+下面针对javascript的方法：
+
+在js中使用leap motion的js API接口读取跟踪信息数据：
+页面引入leapjs的一个基本库；
+
+接口库的使用：
+设置循环事件：
+
+	js客户端库支持两种选择；
+
+	Leap.loop()功能：
+	使用方法：设置loop()函数的设置参数，为可选
+	设置具有帧回调函数的leap循环
+	var controllerOptions = {enableGestures:true};
+	
+	leap.loop(controllerOptions,function(frame){
+
+	//回调函数
+});
+
+
+
+
+
+ 
+
+
+
+	
+	
